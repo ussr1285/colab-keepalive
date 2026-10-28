@@ -10,7 +10,8 @@
 준비: Colab 탭을 브라우저의 '별도 창'으로 떼어 두고 그 창에서 Colab 탭이 활성 탭이어야 한다
 (창 제목은 활성 탭 제목만 보인다). 최소화는 해도 된다.
 
-    python colab_keepalive.py --title "내노트북이름"   # 5분 간격
+    python colab_keepalive.py                         # 시작할 때 Colab 창 목록에서 고름, 5분 간격
+    python colab_keepalive.py --title "내노트북이름"   # 대상 창을 바로 지정
     python colab_keepalive.py --dry-run               # 창 찾기·유휴 시간만 출력, 조작 안 함
 """
 import argparse
@@ -62,6 +63,31 @@ def find_window(title):
     return matches[0] if matches else None
 
 
+def choose_title():
+    """List open Colab windows and let the user pick one by number or type part of a title."""
+    while True:
+        windows = [w for w in pygetwindow.getAllWindows() if ' - Colab' in w.title]
+        if windows:
+            print('열려 있는 Colab 창 (각 브라우저 창의 활성 탭만 보입니다):')
+            for number, window in enumerate(windows, 1):
+                print(f'  [{number}] {window.title}')
+            prompt = '대상 번호, 창 제목 일부, 또는 r(새로고침) 입력 (Enter = 1번): '
+        else:
+            print('지금 보이는 Colab 창이 없습니다. Colab 탭을 별도 창으로 떼고 그 창의 활성 탭으로 두세요.')
+            prompt = '창 제목 일부(노트북 이름) 입력, 또는 r(새로고침): '
+        answer = input(prompt).strip()
+        if answer.lower() == 'r' or (not answer and not windows):
+            continue
+        if not answer:
+            return windows[0].title.split(' - Colab')[0]
+        if answer.isdigit():
+            if 1 <= int(answer) <= len(windows):
+                return windows[int(answer) - 1].title.split(' - Colab')[0]
+            print(f'1~{len(windows)} 중에서 고르세요.')
+            continue
+        return answer
+
+
 def bring_front(window):
     if window.isMinimized:
         window.restore()
@@ -96,13 +122,15 @@ def poke(window):
 
 def main():
     parser = argparse.ArgumentParser(description='Colab 유휴 끊김 방지')
-    parser.add_argument('--title', default=' - Colab', help='대상 창 제목에 들어간 문자열 (기본: 첫 Colab 창)')
+    parser.add_argument('--title', help='대상 창 제목에 들어간 문자열. 없으면 시작할 때 Colab 창 목록에서 고른다')
     parser.add_argument('--every-min', type=float, default=5)
     parser.add_argument('--idle-min', type=float, default=3, help='이 시간 이상 입력이 없을 때만 조작')
     parser.add_argument('--every-sec', type=float, help='--every-min 대신 초 단위 (테스트용)')
     parser.add_argument('--idle-sec', type=float, help='--idle-min 대신 초 단위 (테스트용)')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
+    if not args.title:
+        args.title = choose_title()
     every_sec = args.every_sec if args.every_sec is not None else args.every_min * 60
     idle_sec = args.idle_sec if args.idle_sec is not None else args.idle_min * 60
     jitter = min(20, every_sec * 0.1)

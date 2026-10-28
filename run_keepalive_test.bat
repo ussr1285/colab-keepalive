@@ -7,9 +7,7 @@ set PYTHONUTF8=1
 rem TEST VERSION: acts after 5 seconds without input, then every 10 seconds.
 rem Use run_keepalive.bat for the real overnight run.
 
-rem Part of the Colab window title to keep alive (the notebook name).
-rem Use " - Colab" to target the first Colab window found.
-set "TITLE=Colab_L4_TTS_batch"
+rem The script lists open Colab windows at start and asks which one to keep alive.
 
 where python >nul 2>nul
 if errorlevel 1 (
@@ -20,5 +18,5 @@ if errorlevel 1 (
 python -c "import pyautogui, pygetwindow" >nul 2>nul
 if errorlevel 1 python -m pip install -r requirements.txt
 
-python colab_keepalive.py --title "%TITLE%" --idle-sec 5 --every-sec 10 %*
+python colab_keepalive.py --idle-sec 5 --every-sec 10 %*
 pause
