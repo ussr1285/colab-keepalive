@@ -99,12 +99,17 @@ def main():
     parser.add_argument('--title', default=' - Colab', help='대상 창 제목에 들어간 문자열 (기본: 첫 Colab 창)')
     parser.add_argument('--every-min', type=float, default=5)
     parser.add_argument('--idle-min', type=float, default=3, help='이 시간 이상 입력이 없을 때만 조작')
+    parser.add_argument('--every-sec', type=float, help='--every-min 대신 초 단위 (테스트용)')
+    parser.add_argument('--idle-sec', type=float, help='--idle-min 대신 초 단위 (테스트용)')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
+    every_sec = args.every_sec if args.every_sec is not None else args.every_min * 60
+    idle_sec = args.idle_sec if args.idle_sec is not None else args.idle_min * 60
+    jitter = min(20, every_sec * 0.1)
     stop = threading.Event()
     threading.Thread(target=listen_hotkey, args=(stop,), daemon=True).start()
     kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)
-    print(f'대상 창: "{args.title}" · {args.every_min}분 간격 · 사용자 유휴 {args.idle_min}분 이상일 때만', flush=True)
+    print(f'대상 창: "{args.title}" · {every_sec:.0f}초 간격 · 사용자 유휴 {idle_sec:.0f}초 이상일 때만', flush=True)
     print('종료: Ctrl+Alt+Q (어느 창에서든) / 이 창에서 Ctrl+C / 마우스를 화면 왼쪽 위 구석으로', flush=True)
     try:
         while not stop.is_set():
@@ -113,7 +118,7 @@ def main():
             idle = idle_seconds()
             if window is None:
                 print(f'{now} 대상 Colab 창 없음 — 탭을 별도 창으로 떼고 활성 탭으로 두세요', flush=True)
-            elif idle < args.idle_min * 60:
+            elif idle < idle_sec:
                 print(f'{now} 사용 중(유휴 {idle:.0f}초) — 건너뜀', flush=True)
             elif args.dry_run:
                 print(f'{now} [dry-run] 조작할 창: {window.title} (유휴 {idle:.0f}초)', flush=True)
@@ -128,7 +133,7 @@ def main():
                     print(f'{now} 조작 실패: {error!r}', flush=True)
             if args.dry_run:
                 break
-            stop.wait(args.every_min * 60 + random.uniform(-20, 20))
+            stop.wait(every_sec + random.uniform(-jitter, jitter))
         if stop.is_set():
             print('Ctrl+Alt+Q — 종료합니다', flush=True)
     except KeyboardInterrupt:
